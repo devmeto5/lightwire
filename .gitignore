@@ -1,0 +1,5 @@
+dist/
+*.conf
+*.conf.dpapi
+*.key
+*.tmp
