@@ -1,41 +1,41 @@
 # LightWire
 
-Небольшой персональный VPN-клиент для Windows 10/11 x64, с русским интерфейсом. Использует официальный WireGuard for Windows: собственная реализация криптографии и сетевой драйвер в проект не входят. Для подключения нужен свой сервер WireGuard и его клиентский файл `.conf`.
+A lightweight personal VPN client for Windows 10/11 x64 with an English interface. Uses official WireGuard for Windows for encryption and tunneling. You need your own WireGuard server and a client `.conf` file.
 
-## Установка
+## Installation
 
-1. Установите [официальный WireGuard](https://www.wireguard.com/install/) для Windows.
-2. Скачайте `LightWire-Setup.exe` из Releases или архива сборки Actions этого репозитория.
-3. Запустите установщик и подтвердите запрос администратора. Он копирует приложение в `C:\Program Files\LightWire` и добавляет ярлык в меню Пуск.
-4. Запустите LightWire, нажмите «Импорт .conf», выберите конфигурацию своего сервера.
-5. Нажмите «Подключить», откройте сайт и дождитесь сообщения о свежем рукопожатии с сервером.
+1. Install [official WireGuard for Windows](https://www.wireguard.com/install/).
+2. Download `LightWire-Setup.exe` from a tagged Release, when available, or the latest successful build artifact in this repository's Actions tab.
+3. Run the installer and approve the administrator prompt. It installs to `C:\Program Files\LightWire` and adds a Start menu shortcut.
+4. Open LightWire, click **Import .conf**, and select your server's client configuration.
+5. Click **Connect**, open a website, and wait for a recent server handshake.
 
-Программа и установщик не подписаны коммерческим сертификатом. Windows может показать предупреждение о неизвестном издателе. Проверяйте источник файла и SHA256SUMS.txt. Для работы используется встроенный .NET Framework 4.x; Python и .NET SDK не нужны.
+The application and installer are unsigned. Windows may show an unknown publisher warning. Verify the source and SHA256SUMS.txt. Uses built-in .NET Framework 4.x; no Python or .NET SDK is required. Windows-owned dialogs and system error details may follow your Windows language settings.
 
-Поддерживается один профиль и один Peer. Заменить профиль можно после отключения. Закрытие окна не отключает VPN; установленная служба может запуститься и после перезагрузки. Кнопка «Отключить» удаляет службу именно LightWirePersonal. Другие туннели программа не изменяет; не включайте одновременно несколько VPN с конфликтующими маршрутами.
+One profile and one Peer are supported. Disconnect before replacing the profile. Closing the window does not disconnect the VPN; the installed service may also start after reboot. **Disconnect** removes only the LightWirePersonal tunnel service. Avoid running VPNs with conflicting routes.
 
-## Конфигурация клиента
+## Client configuration
 
-Файл создаётся при настройке вашего сервера. Пример (значения в угловых скобках обязательно заменить):
+Replace all placeholders in angle brackets:
 
 ```ini
 [Interface]
-PrivateKey = <ПРИВАТНЫЙ_КЛЮЧ_КЛИЕНТА>
+PrivateKey = <CLIENT_PRIVATE_KEY>
 Address = 10.66.66.2/32
 DNS = 1.1.1.1
 
 [Peer]
-PublicKey = <ПУБЛИЧНЫЙ_КЛЮЧ_СЕРВЕРА>
-Endpoint = <ПУБЛИЧНЫЙ_IP_СЕРВЕРА>:51820
+PublicKey = <SERVER_PUBLIC_KEY>
+Endpoint = <SERVER_PUBLIC_IP>:51820
 AllowedIPs = 0.0.0.0/0, ::/0
 PersistentKeepalive = 25
 ```
 
-`::/0` направляет IPv6 в туннель: на приведённом ниже сервере без IPv6-маршрутизации IPv6 работать не будет, а IPv4 продолжит работать. Удаление `::/0` может позволить IPv6 идти напрямую через провайдера. Частичные AllowedIPs дают split tunnel. Отдельного собственного kill switch приложение не реализует; маршрутизацию и firewall обслуживает WireGuard. Не считайте запуск службы доказательством доступности интернета: клиент отдельно показывает возраст последнего рукопожатия.
+`::/0` routes IPv6 into the tunnel. With the IPv4-only server below, IPv6 connectivity will be unavailable while IPv4 continues to work. Removing it may let IPv6 traffic go directly through your ISP. Narrower AllowedIPs enable split tunneling. LightWire has no separate kill switch; WireGuard handles routing and firewall behavior. A running service does not prove internet connectivity: the client separately displays the age of the last handshake.
 
-## Свой сервер: пример для нового Ubuntu VPS
+## Server setup: new Ubuntu VPS
 
-Требуются root/sudo, публичный IPv4 и разрешённый входящий UDP 51820 в firewall провайдера. Пример предназначен для нового сервера без настроенного firewall; существующие UFW/nftables/iptables правила нужно согласовать с администратором. SSH-порт должен остаться доступным.
+Requires root/sudo, a public IPv4 address, and inbound UDP 51820 allowed in your provider's firewall. This example assumes a new server without an existing firewall configuration. Coordinate existing UFW/nftables/iptables rules with your administrator and keep SSH access available.
 
 ```sh
 sudo apt update
@@ -51,18 +51,18 @@ sysctl --system
 ip route show default
 ```
 
-Запишите имя внешнего интерфейса после `dev` (например `ens3`). Создайте `/etc/wireguard/wg0.conf`, подставив ключ из `server.key`, ключ из `client.pub` и имя интерфейса вместо `ens3`:
+Note the external interface after `dev`, such as `ens3`. Create `/etc/wireguard/wg0.conf`, substituting the contents of server.key and client.pub and replacing ens3 with your external interface:
 
 ```ini
 [Interface]
 Address = 10.66.66.1/24
 ListenPort = 51820
-PrivateKey = <СОДЕРЖИМОЕ_SERVER.KEY>
+PrivateKey = <CONTENTS_OF_SERVER.KEY>
 PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT; iptables -t nat -A POSTROUTING -s 10.66.66.0/24 -o ens3 -j MASQUERADE
 PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT; iptables -t nat -D POSTROUTING -s 10.66.66.0/24 -o ens3 -j MASQUERADE
 
 [Peer]
-PublicKey = <СОДЕРЖИМОЕ_CLIENT.PUB>
+PublicKey = <CONTENTS_OF_CLIENT.PUB>
 AllowedIPs = 10.66.66.2/32
 ```
 
@@ -72,22 +72,22 @@ systemctl enable --now wg-quick@wg0
 wg show
 ```
 
-Создайте клиентский `.conf` по примеру выше: `PrivateKey` из `client.key`, `PublicKey` из `server.pub`, Endpoint — адрес VPS. Перенесите его на ПК через защищённый канал. Для каждого нового устройства генерируйте отдельную пару ключей и отдельный адрес. Эти команды приложение самостоятельно не выполняет.
+Create the client file using the earlier example: PrivateKey from client.key, PublicKey from server.pub, and your VPS address for Endpoint. Transfer it to your PC through a secure channel. Generate a separate key pair and address for every additional device. LightWire does not run these server commands automatically.
 
-## Хранение ключей
+## Key storage
 
-Импортированный профиль сохраняется зашифрованным Windows DPAPI в `%ProgramData%\LightWire\LightWirePersonal.conf.dpapi`; доступ к каталогу ограничивается администраторами и SYSTEM. Ключ не попадает в сообщения ошибок или репозиторий. Исходный импортированный `.conf` остаётся на месте: храните его безопасно, он содержит секрет. Администратор компьютера может расшифровать профиль. Импорт не разрешает команды PreUp/PostUp/PreDown/PostDown. Полную семантическую проверку сетевых параметров выполняет WireGuard при подключении.
+Profiles are encrypted with Windows DPAPI in `%ProgramData%\LightWire\LightWirePersonal.conf.dpapi`. Folder access is restricted to Administrators and SYSTEM. Configuration keys are not included in application error messages or uploaded to this repository. The original imported file remains in place: store it securely because it contains a secret. A computer administrator can decrypt the saved profile. Import rejects PreUp/PostUp/PreDown/PostDown commands. WireGuard performs full semantic validation of network settings on connection.
 
-## Сборка
+## Building
 
-В Windows x64 выполните `powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1`. Используется встроенный компилятор .NET Framework. Результат — `dist/LightWire.exe`, `dist/LightWire-Setup.exe` и SHA256SUMS.txt. Скрипт также запускает тесты проверки конфигурации. GitHub Actions повторяет сборку; тег `v*` создаёт Release с exe.
+Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1` on Windows x64. The built-in .NET Framework compiler produces `dist/LightWire.exe`, `dist/LightWire-Setup.exe`, and `dist/SHA256SUMS.txt`. The script also runs configuration validation tests. GitHub Actions repeats the build; a `v*` tag publishes a Release with executables.
 
-## Удаление
+## Uninstalling
 
-Сначала нажмите «Отключить» и закройте приложение. Удалите `C:\Program Files\LightWire`, ярлык `%ProgramData%\Microsoft\Windows\Start Menu\Programs\LightWire.lnk` и, если профиль больше не нужен, `%ProgramData%\LightWire`. Нужны права администратора. WireGuard удаляется отдельно через настройки Windows. Установщик первой версии не регистрируется в списке установленных приложений.
+Click **Disconnect** and close the application. Delete `C:\Program Files\LightWire`, the shortcut `%ProgramData%\Microsoft\Windows\Start Menu\Programs\LightWire.lnk`, and, if no longer needed, `%ProgramData%\LightWire`. Administrator permissions are required. Uninstall WireGuard separately through Windows Settings. This first-version installer does not register an entry in the installed apps list.
 
-## Проверка и ограничения
+## Validation and limitations
 
-Проверены компиляция и тесты фильтрации конфигурации. Подключение к реальному серверу требует отдельной проверки после покупки VPS. Проверить: свежий handshake, внешний IP, DNS, IPv6, отключение, перезагрузку и восстановление обычного интернета. Это первая версия, без аудита безопасности и без гарантии обхода блокировок WireGuard.
+Compilation and configuration filtering tests have been checked. A real server connection still needs testing after you provision your VPS. Verify a recent handshake, external IP, DNS, IPv6 behavior, disconnection, reboot behavior, and restoration of normal internet access. This initial version has not had a security audit and does not guarantee bypassing WireGuard blocking.
 
-Документация: [WireGuard Quick Start](https://www.wireguard.com/quickstart/), [управление туннелями Windows](https://git.zx2c4.com/wireguard-windows/about/docs/enterprise.md).
+References: [WireGuard Quick Start](https://www.wireguard.com/quickstart/), [Windows tunnel management](https://git.zx2c4.com/wireguard-windows/about/docs/enterprise.md).
