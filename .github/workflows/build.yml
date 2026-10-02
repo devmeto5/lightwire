@@ -1,0 +1,33 @@
+name: Build Windows
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test
+        shell: powershell
+        run: ./build.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LightWire-Windows-x64
+          path: |
+            dist/LightWire.exe
+            dist/LightWire-Setup.exe
+            dist/SHA256SUMS.txt
+            README.md
+      - name: Publish tagged release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$env:GITHUB_REF_NAME" dist/LightWire.exe dist/LightWire-Setup.exe dist/SHA256SUMS.txt --title "LightWire $env:GITHUB_REF_NAME" --notes "Windows x64. Install official WireGuard first. See README for setup and limitations."
